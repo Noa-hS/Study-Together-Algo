@@ -1,99 +1,104 @@
-import json 
+import json
 import random
-from datetime import datetime
+from datetime import date
 
-# Constants
-GROUP_SIZE = 4
-MAX_RECOMMENDED_USERS = 10
+GROUP_SIZE = 5
+SUBJECTS = 'subjects'
 
-# Simulating Firestore database
-db = {}
+def read_json(file):
+    with open(file, 'r') as f:
+        return json.load(f)
 
-def generate_study_groups(profile_collection):
-    # Check if admin settings exist, if not create them
-    if not check_admin_settings_exist():
-        create_admin_settings()
+def mass_grouping(data):
+    subject_dict = {}
+    for student in data:
+        if student['opt'] == 1:
+            for subject in student[SUBJECTS]:
+                if subject not in subject_dict:
+                    subject_dict[subject] = []
+                subject_dict[subject].append(student['uid'])
+    return subject_dict
 
-    # Extract user data from profiles
-    users = [
-        {
-            'uid': doc.id,
-            'summary': doc.data['summary'],
-            'firstName': doc.data['firstName'],
-            'lastName': doc.data['lastName']
-        }
-        for doc in profile_collection
-    ]
+def group_amount(subject_dict):
+    group_calc = {}
+    for subject, students in subject_dict.items():
+        full_groups = len(students) // GROUP_SIZE
+        remainder = len(students) % GROUP_SIZE
+        group_calc[subject] = {"full_groups": full_groups, "remainder": remainder}
+    return group_calc
 
-    # Randomize user order
-    random.shuffle(users)
+def distribute_remainder(groups, remainder, full_groups):
+    if remainder == 0:
+        return groups
+    
+    if remainder == 1:
+        if full_groups == 1:
+            groups[0].append(remainder[0])
+        else:
+            random_group = random.choice(groups)
+            random_group.append(remainder[0])
+    
+    elif remainder == 2:
+        if full_groups == 1:
+            groups[0].extend(remainder)
+        else:
+            random_groups = random.sample(groups, 2)
+            for i, group in enumerate(random_groups):
+                group.append(remainder[i])
+    
+    elif remainder == 3:
+        if full_groups == 1:
+            groups.append(remainder[:2])
+            groups.append(remainder[2:])
+        elif full_groups == 2:
+            groups[0].extend(remainder[:2])
+            groups[1].append(remainder[2])
+        else:
+            random_groups = random.sample(groups, 3)
+            for i, group in enumerate(random_groups):
+                group.append(remainder[i])
+    
+    elif remainder == 4:
+        if full_groups <= 3:
+            groups.append(remainder)
+        else:
+            random_groups = random.sample(groups, 4)
+            for i, group in enumerate(random_groups):
+                group.append(remainder[i])
+    
+    return groups
 
-    # Divide users into groups
-    groups = [users[i:i+GROUP_SIZE] for i in range(0, len(users), GROUP_SIZE)]
+def generate_study_groups(subject_dict, group_calc):
+    study_groups = {}
+    today = date.today().strftime("%d/%m/%Y")
+    study_groups[today] = {}
 
-    # Redistribute the smallest group if necessary
-    if len(groups[-1]) < GROUP_SIZE and len(groups[-1]) <= len(groups) - 1:
-        for i, user in enumerate(groups[-1]):
-            groups[i].append(user)
-        groups.pop()
-
-    # Create groups in the database
-    collection_count = len(db.get('groups', []))
-    for group in groups:
-        collection_count += 1
-        group_id = f"group_{collection_count}"
+    for subject, students in subject_dict.items():
+        full_groups = group_calc[subject]["full_groups"]
+        remainder = group_calc[subject]["remainder"]
         
-        # Add members to group
-        uids = []
-        for profile in group:
-            db.setdefault(f"groups/{group_id}/members", {})[profile['uid']] = profile
-            uids.append(profile['uid'])
+        if full_groups == 0 and remainder < 3:
+            continue 
+        
+        random.shuffle(students)
+        groups = [students[i:i+GROUP_SIZE] for i in range(0, len(students) - remainder, GROUP_SIZE)]
+        
+        if remainder > 0:
+            remaining_students = students[-remainder:]
+            groups = distribute_remainder(groups, remaining_students, full_groups)
+        
+        study_groups[today][subject] = {f"group {i+1}": group for i, group in enumerate(groups)}
 
-        # Set group details
-        db.setdefault('groups', {})[group_id] = {
-            'id': group_id,
-            'groupNumber': collection_count,
-            'memberUserIds': uids,
-            'attendingUserIds': [],
-            'createdAt': datetime.now()
-        }
+    return study_groups
 
-def generate_recommendations(profile_collection, profile_ref):
-    # Get already matched users
-    matched_uids = set(db.get(f"profiles/{profile_ref}/match.complete", {}).keys())
-
-    # Filter and prepare potential recommendations
-    potential_recommendations = [
-        {
-            'uid': doc.id,
-            'summary': doc.data['summary'],
-            'bio': doc.data['bio'],
-            'firstName': doc.data['firstName'],
-            'lastName': doc.data['lastName'],
-            'graduationYear': doc.data['graduationYear'],
-            'degree': doc.data['degree'],
-            'major': doc.data['major'],
-            'interests': doc.data['interests'],
-            'subjects': doc.data['subjects']
-        }
-        for doc in profile_collection
-        if doc.id not in matched_uids and doc.id != profile_ref
-    ]
-
-    # Randomly select recommendations
-    recommended_users = random.sample(potential_recommendations, min(MAX_RECOMMENDED_USERS, len(potential_recommendations)))
-
-    # Update recommendations in the database
-    db[f"profiles/{profile_ref}/recommendations"] = {user['uid']: user for user in recommended_users}
-
-
-# Executing function
 def main():
-    profile_collection = db.get('profiles', {})
-    generate_study_groups(profile_collection)
-
-    for profile_ref in profile_collection:
-        generate_recommendations(profile_collection, profile_ref)
+    file_path = "testdata.json"  
+    data = read_json(file_path)
+    subject_dict = mass_grouping(data)
+    group_calc = group_amount(subject_dict)
+    study_groups = generate_study_groups(subject_dict, group_calc)
+    
+    print(json.dumps(study_groups, indent=2))
 
 if __name__ == "__main__":
     main()
