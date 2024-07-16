@@ -1,13 +1,25 @@
 import json
 import random
 from datetime import date
+import sys
 
+#This algorithm is not optimized for any other group sizes, for now it should be 5
 GROUP_SIZE = 5
 SUBJECTS = 'subjects'
 
 def read_json(file):
-    with open(file, 'r') as f:
-        return json.load(f)
+    try:
+        with open(file, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Error: File '{file}' not found.")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in file '{file}'. {str(e)}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error while reading file: {str(e)}")
+        sys.exit(1)
 
 def mass_grouping(data):
     subject_dict = {}
@@ -89,6 +101,9 @@ def generate_study_groups(subject_dict, group_calc):
         
         study_groups[today][subject] = {f"group {i+1}": group for i, group in enumerate(groups)}
 
+        total_students = len(students)
+        study_groups[today][f"{subject} (Total Students: {total_students})"] = {f"group {i+1}": group for i, group in enumerate(groups)}
+
     return study_groups
 
 def main():
@@ -98,7 +113,7 @@ def main():
     group_calc = group_amount(subject_dict)
     study_groups = generate_study_groups(subject_dict, group_calc)
     
-    print(json.dumps(study_groups, indent=2))
+    print(json.dumps(study_groups, indent=1))
 
 if __name__ == "__main__":
     main()
