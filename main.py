@@ -1,9 +1,12 @@
+# optimise imports later
 import json
 import random
 from datetime import date
 import sys
 
-#This algorithm is not optimized for any other group sizes, for now it should be 5
+# Optimise json processing using generators later
+
+# This algorithm is not optimized for any other group sizes, for now it should be 5
 GROUP_SIZE = 5
 SUBJECTS = 'subjects'
 
@@ -31,6 +34,7 @@ def mass_grouping(data):
                 subject_dict[subject].append(student['uid'])
     return subject_dict
 
+# optimise using counter later
 def group_amount(subject_dict):
     group_calc = {}
     for subject, students in subject_dict.items():
@@ -39,6 +43,7 @@ def group_amount(subject_dict):
         group_calc[subject] = {"full_groups": full_groups, "remainder": remainder}
     return group_calc
 
+# This function is hella unoptimised, optimise later   
 def distribute_remainder(groups, remainder, full_groups):
     if len(remainder) == 0:
         return groups
@@ -47,8 +52,8 @@ def distribute_remainder(groups, remainder, full_groups):
         if len(remainder) >= 3:
             return [remainder]
         else:
-            return []  # Invalid group, less than 3 students
-
+            return []  # Invalid group 
+        
     if len(remainder) == 1:
         if full_groups == 1:
             groups[0].append(remainder[0])
@@ -85,6 +90,7 @@ def distribute_remainder(groups, remainder, full_groups):
     
     return groups
 
+# Next time use collections to optimise 
 def generate_study_groups(subject_dict, group_calc):
     study_groups = {}
     today = date.today().strftime("%d/%m/%Y")
@@ -100,7 +106,7 @@ def generate_study_groups(subject_dict, group_calc):
         remaining_students = students[full_groups * GROUP_SIZE:]
         groups = distribute_remainder(groups, remaining_students, full_groups)
         
-        if not groups:  # Skip if the group is invalid (less than 3 students)
+        if not groups:  # Skip if the group is invalid since its less than 3 students  
             continue
         
         total_students = len(students)
@@ -109,13 +115,17 @@ def generate_study_groups(subject_dict, group_calc):
     return study_groups
 
 def main():
-    file_path = "testdata.json"  
-    data = read_json(file_path)
-    subject_dict = mass_grouping(data)
-    group_calc = group_amount(subject_dict)
-    study_groups = generate_study_groups(subject_dict, group_calc)
-    
-    print(json.dumps(study_groups, indent=1))
+    try:
+        file_path = "testdata.json"  # Replace with JSON file path
+        data = read_json(file_path)
+        subject_dict = mass_grouping(data)
+        group_calc = group_amount(subject_dict)
+        study_groups = generate_study_groups(subject_dict, group_calc)
+        
+        print(json.dumps(study_groups, indent=2))
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
