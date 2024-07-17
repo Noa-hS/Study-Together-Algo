@@ -40,17 +40,22 @@ def group_amount(subject_dict):
     return group_calc
 
 def distribute_remainder(groups, remainder, full_groups):
-    if remainder == 0:
+    if len(remainder) == 0:
         return groups
     
-    if remainder == 1:
+    if full_groups == 0:
+        if len(remainder) >= 3:
+            return [remainder]
+        else:
+            return []  # Invalid group, less than 3 students
+
+    if len(remainder) == 1:
         if full_groups == 1:
             groups[0].append(remainder[0])
         else:
-            random_group = random.choice(groups)
-            random_group.append(remainder[0])
+            random.choice(groups).append(remainder[0])
     
-    elif remainder == 2:
+    elif len(remainder) == 2:
         if full_groups == 1:
             groups[0].extend(remainder)
         else:
@@ -58,7 +63,7 @@ def distribute_remainder(groups, remainder, full_groups):
             for i, group in enumerate(random_groups):
                 group.append(remainder[i])
     
-    elif remainder == 3:
+    elif len(remainder) == 3:
         if full_groups == 1:
             groups.append(remainder[:2])
             groups.append(remainder[2:])
@@ -70,7 +75,7 @@ def distribute_remainder(groups, remainder, full_groups):
             for i, group in enumerate(random_groups):
                 group.append(remainder[i])
     
-    elif remainder == 4:
+    elif len(remainder) == 4:
         if full_groups <= 3:
             groups.append(remainder)
         else:
@@ -89,21 +94,18 @@ def generate_study_groups(subject_dict, group_calc):
         full_groups = group_calc[subject]["full_groups"]
         remainder = group_calc[subject]["remainder"]
         
-        if full_groups == 0 and remainder < 3:
-            continue 
-        
         random.shuffle(students)
-        groups = [students[i:i+GROUP_SIZE] for i in range(0, len(students) - remainder, GROUP_SIZE)]
+        groups = [students[i:i+GROUP_SIZE] for i in range(0, full_groups * GROUP_SIZE, GROUP_SIZE)]
         
-        if remainder > 0:
-            remaining_students = students[-remainder:]
-            groups = distribute_remainder(groups, remaining_students, full_groups)
+        remaining_students = students[full_groups * GROUP_SIZE:]
+        groups = distribute_remainder(groups, remaining_students, full_groups)
         
-        study_groups[today][subject] = {f"group {i+1}": group for i, group in enumerate(groups)}
-
+        if not groups:  # Skip if the group is invalid (less than 3 students)
+            continue
+        
         total_students = len(students)
         study_groups[today][f"{subject} (Total Students: {total_students})"] = {f"group {i+1}": group for i, group in enumerate(groups)}
-
+    
     return study_groups
 
 def main():
